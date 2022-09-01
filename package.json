@@ -1,0 +1,18 @@
+{
+  "name": "dummy-api-server",
+  "version": "1.0.0",
+  "description": "Dummy API Server",
+  "main": "index.js",
+  "scripts": {
+    "start": "nodemon index.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "jhlee@gtone.co.kr",
+  "license": "ISC",
+  "dependencies": {
+    "cors": "^2.8.5",
+    "express": "^4.18.1",
+    "express-http-proxy": "^1.6.3",
+    "lodash": "^4.17.21"
+  }
+}
