@@ -17,9 +17,6 @@ const apiProxy = proxy(config.ORIGIN_HOST, {
 const fmap = {};
 
 function registApi (apiPath, dataPath) {
-    if (apiPath.charAt(0) !== "/") {
-        apiPath = "/" + apiPath;
-    }
     fmap[apiPath] = dataPath;
 }
 
@@ -39,7 +36,17 @@ function traval (dir) {
     for (let f of fs.readdirSync(dir)) {
         let apiPath = f.replace(/\.json$/, "").replaceAll(".", "/");
         let fp = path.resolve(path.join(dir, f));
-        registApi(apiPath, fp);
+        if (apiPath.charAt(0) !== "/") {
+            apiPath = "/" + apiPath;
+        }
+
+        if (_.find(config.INGORES, (ignore) => { return apiPath.startsWith(ignore) })) {
+            console.log(" * ingore", apiPath)
+        } else {
+            console.log
+            registApi(apiPath, fp);
+        }
+
     }
 
     let x = _.max(Object.keys(fmap).map((v) => v.length));
