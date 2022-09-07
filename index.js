@@ -2,6 +2,7 @@ const express = require("express");
 const cors = require("cors");
 const url = require('url');
 const proxy = require('express-http-proxy');
+const bodyParser = require('body-parser');
 const _ = require("lodash");
 const fs = require("fs");
 const path = require("path");
@@ -9,55 +10,75 @@ const config = require("./config.json");
 const app = express();
 app.use("*", cors());
 app.use("/cdn", express.static('cdn'));
+app.use(bodyParser.urlencoded({ extended: true }));
+app.use(bodyParser.json());
 
 const apiProxy = proxy(config.ORIGIN_HOST, {
     proxyReqPathResolver: req => url.parse(req.baseUrl).path
 });
 
-const fmap = {};
+const jsonMap = {};
+const scriptMap = {};
 
-function registApi (apiPath, dataPath) {
-    fmap[apiPath] = dataPath;
+function registScript (path, func) {
+    scriptMap[path] = func;
+}
+
+function registJson (apiPath, dataPath) {
+    jsonMap[apiPath] = dataPath;
 }
 
 app.use("*", (req, res, next) => {
-    if (fmap[req.originalUrl]) {
+    if (jsonMap[req.originalUrl]) {
         console.log("DUMMY ]", req.originalUrl);
         res.setHeader("Access-Control-Allow-Origin", "*");
-        let file = fs.readFileSync(fmap[req.originalUrl]);
+        let file = fs.readFileSync(jsonMap[req.originalUrl]);
         let obj = JSON.parse(file);
         res.json({ data: obj })
+    } else if (scriptMap[req.originalUrl]) {
+        console.log("DUMMY ]", req.originalUrl);
+        res.setHeader("Access-Control-Allow-Origin", "*");
+        let obj = scriptMap[req.originalUrl](req.body);
+        res.json({ data: obj })
     } else {
-        console.log("ORIGIN]", req.originalUrl);
+        if (!config.LOG_ONLY_DUMMY) console.log("ORIGIN]", req.originalUrl);
         apiProxy(req, res, next);
     }
 });
 function traval (dir) {
     for (let f of fs.readdirSync(dir)) {
-        let apiPath = f.replace(/\.json$/, "").replaceAll(".", "/");
-        let fp = path.resolve(path.join(dir, f));
+        let isScript = /\.js$/.test(f);
+        let isJson = /\.json$/.test(f);
+        let apiPath = f.replace(/\.(js|json)$/, "").replaceAll(".", "/");
+
         if (apiPath.charAt(0) !== "/") {
             apiPath = "/" + apiPath;
         }
 
+
         if (_.find(config.INGORES, (ignore) => { return apiPath.startsWith(ignore) })) {
             console.log(" * ingore", apiPath)
-        } else {
-            console.log
-            registApi(apiPath, fp);
+        } else if (isScript) {
+            let func = require(dir + "/" + f).default;
+            registScript(apiPath, func);
+        } else if (isJson) {
+            let filepath = path.resolve(path.join(dir, f));
+            registJson(apiPath, filepath);
         }
-
     }
 
-    let x = _.max(Object.keys(fmap).map((v) => v.length));
-    console.log("+" + "-".repeat(x + 2) + "+")
+    let width = 8 + _.max(Object.keys(jsonMap).map((v) => v.length), Object.keys(scriptMap).map((v) => v.length),);
+    console.log("+" + "-".repeat(width + 2) + "+")
 
-    console.log("|", "Loaded dummy API".padEnd(x), "|")
-    console.log("|" + "-".repeat(x + 2) + "|")
-    _.each(_.sortBy(_.keys(fmap)), (k) => {
-        console.log("|", k.padEnd(x), "|");
+    console.log("|", "Loaded dummy API".padEnd(width), "|")
+    console.log("|" + "-".repeat(width + 2) + "|")
+    _.each(_.sortBy(_.keys(jsonMap)), (k) => {
+        console.log("| [JSON]", k.padEnd(width - 7), "|");
     })
-    console.log("+" + "-".repeat(x + 2) + "+\n")
+    _.each(_.sortBy(_.keys(scriptMap)), (k) => {
+        console.log("| [ JS ]", k.padEnd(width - 7), "|");
+    })
+    console.log("+" + "-".repeat(width + 2) + "+\n")
 
 }
 

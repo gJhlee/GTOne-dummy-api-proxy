@@ -1,7 +1,6 @@
 {
     "ORIGIN_HOST": "http://localhost:8080",
     "DUMMY_PORT": 8888,
-    "INGORES": [
-        "/rest/result/dqi"
-    ]
+    "INGORES": ["/api/helloworld/ignore"],
+    "LOG_ONLY_DUMMY": true
 }
